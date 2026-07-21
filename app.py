@@ -171,16 +171,25 @@ st.title("🧾 Control de Gastos Detallado")
 if df_raw.empty:
     st.error("No se pudo cargar la información. Revisa la conexión con Notion.")
 else:
-    total_gastado = df_filtrado['Importe'].sum()
-    num_transacciones = len(df_filtrado)
-    gasto_promedio = df_filtrado['Importe'].mean() if num_transacciones > 0 else 0
-    ticket_max = df_filtrado['Importe'].max() if num_transacciones > 0 else 0
+    ingreso = df_filtrado[df_filtrado['Cuenta'] == 'Ingreso']['Importe'].sum()
+    gasto = df_filtrado[df_filtrado['Cuenta'] == 'Gasto']['Importe'].sum()
+    inversion = df_filtrado[df_filtrado['Cuenta'] == 'Inversión']['Importe'].sum()
+    ganancia = ingreso - gasto - inversion
+    capital = df_filtrado[df_filtrado['Cuenta'] == 'Capital']['Importe'].sum()
 
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("💰 Total Gastado", f"S/. {total_gastado:,.2f}")
-    m2.metric("🧮 N° Transacciones", f"{num_transacciones:,}")
-    m3.metric("📊 Gasto Promedio", f"S/. {gasto_promedio:,.2f}")
-    m4.metric("🔺 Gasto Máximo", f"S/. {ticket_max:,.2f}")
+    cant_inversion = df_filtrado[df_filtrado['Cuenta'] == 'Inversión']['Cantidad'].sum()
+    cant_ingreso = df_filtrado[df_filtrado['Cuenta'] == 'Ingreso']['Cantidad'].sum()
+    stock = cant_inversion - cant_ingreso
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric("📈 Ingreso", f"S/. {ingreso:,.2f}")
+    m2.metric("📉 Gasto", f"S/. {gasto:,.2f}")
+    m3.metric("🧱 Inversión", f"S/. {inversion:,.2f}")
+
+    m4, m5, m6 = st.columns(3)
+    m4.metric("💰 Ganancia", f"S/. {ganancia:,.2f}")
+    m5.metric("📦 Stock", f"{stock:,.0f} unidades")
+    m6.metric("🏦 Capital", f"S/. {capital:,.2f}")
 
     st.markdown("<hr>", unsafe_allow_html=True)
 
