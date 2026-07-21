@@ -232,30 +232,34 @@ else:
         col_cat, col_stock = st.columns(2)
 
         with col_cat:
-            st.markdown('<p class="section-title">Distribución por Categoría</p>', unsafe_allow_html=True)
-            if not df_filtrado.empty:
-                df_cat = df_filtrado.groupby('Categoria')['Importe'].sum().reset_index().sort_values('Importe', ascending=False)
+            st.markdown('<p class="section-title">Distribución por Categoría (Ventas)</p>', unsafe_allow_html=True)
+            df_ingreso = df_filtrado[df_filtrado['Cuenta'] == 'Ingreso']
+            if not df_ingreso.empty:
+                df_cat = df_ingreso.groupby('Categoria')['Importe'].sum().reset_index().sort_values('Importe', ascending=False)
                 fig_cat = px.bar(
                     df_cat, x="Categoria", y="Importe", text_auto='.2f',
                     color="Categoria", color_discrete_sequence=px.colors.qualitative.Pastel
                 )
                 fig_cat.update_traces(hovertemplate="<b>%{x}</b><br>Importe: S/. %{y:,.2f}<extra></extra>")
-                fig_cat.update_layout(xaxis_title="Categoría", yaxis_title="Importe (S/.)", showlegend=False, margin=dict(t=10, b=10))
+                fig_cat.update_layout(xaxis_title="Categoría", yaxis_title="Importe vendido (S/.)", showlegend=False, margin=dict(t=10, b=10))
                 st.plotly_chart(fig_cat, use_container_width=True)
             else:
-                st.info("No hay registros para mostrar.")
+                st.info("No hay registros de tipo 'Ingreso' para mostrar.")
 
         with col_stock:
             st.markdown('<p class="section-title">Stock por Categoría</p>', unsafe_allow_html=True)
-            df_sin_capital = df_filtrado[df_filtrado['Cuenta'] != 'Capital']
-            if not df_sin_capital.empty:
-                df_stock_cat = df_sin_capital.groupby('Categoria')['Cantidad'].sum().reset_index().sort_values('Cantidad', ascending=False)
+            if not df_filtrado.empty:
+                df_inv_cat = df_filtrado[df_filtrado['Cuenta'] == 'Inversión'].groupby('Categoria')['Cantidad'].sum()
+                df_ing_cat = df_filtrado[df_filtrado['Cuenta'] == 'Ingreso'].groupby('Categoria')['Cantidad'].sum()
+                df_stock_cat = (df_inv_cat.subtract(df_ing_cat, fill_value=0)).reset_index()
+                df_stock_cat.columns = ['Categoria', 'Cantidad']
+                df_stock_cat = df_stock_cat.sort_values('Cantidad', ascending=False)
                 fig_stock = px.bar(
                     df_stock_cat, x="Categoria", y="Cantidad", text_auto='.0f',
                     color="Categoria", color_discrete_sequence=px.colors.qualitative.Set3
                 )
-                fig_stock.update_traces(hovertemplate="<b>%{x}</b><br>Cantidad: %{y:,.0f}<extra></extra>")
-                fig_stock.update_layout(xaxis_title="Categoría", yaxis_title="Cantidad", showlegend=False, margin=dict(t=10, b=10))
+                fig_stock.update_traces(hovertemplate="<b>%{x}</b><br>Stock: %{y:,.0f}<extra></extra>")
+                fig_stock.update_layout(xaxis_title="Categoría", yaxis_title="Stock (unidades)", showlegend=False, margin=dict(t=10, b=10))
                 st.plotly_chart(fig_stock, use_container_width=True)
             else:
                 st.info("No hay registros para mostrar.")
