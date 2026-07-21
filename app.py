@@ -102,7 +102,16 @@ def cargar_datos():
             if not importe:
                 importe = cantidad * valor
 
-            fecha_str = props.get("Fecha del gasto", {}).get("date", {}).get("start", None)
+            # Fecha del gasto: buscamos automáticamente CUALQUIER propiedad de tipo 'date',
+            # sin depender del nombre exacto (evita fallos por espacios ocultos, mayúsculas, etc.)
+            fecha_str = None
+            for prop_value in props.values():
+                if isinstance(prop_value, dict) and prop_value.get("type") == "date":
+                    date_obj = prop_value.get("date")
+                    if date_obj:
+                        fecha_str = date_obj.get("start")
+                    break
+
             metodo_pago = props.get("Método de pago", {}).get("select", {}).get("name", "Sin especificar")
             categoria = props.get("Categoría", {}).get("select", {}).get("name", "Otros")
             cuenta = props.get("Cuenta", {}).get("select", {}).get("name", "Sin especificar")
