@@ -71,6 +71,7 @@ def cargar_datos():
         while True:
             response = requests.post(url, headers=headers, json=payload)
             if response.status_code != 200:
+                st.error(f"Error Notion API [{response.status_code}]: {response.text}")
                 return pd.DataFrame()
             data = response.json()
             all_results.extend(data.get("results", []))
@@ -123,7 +124,8 @@ def cargar_datos():
             df = df.sort_values(by='Fecha_Raw', ascending=True)
             df['Mes'] = df['Fecha_Raw'].dt.strftime('%m/%Y')
         return df
-    except Exception:
+    except Exception as e:
+        st.error(f"Error al procesar los datos: {e}")
         return pd.DataFrame()
 
 df_raw = cargar_datos()
