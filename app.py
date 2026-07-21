@@ -102,15 +102,34 @@ def cargar_datos():
             if not importe:
                 importe = cantidad * valor
 
-            # Fecha del gasto: buscamos automáticamente CUALQUIER propiedad de tipo 'date',
-            # sin depender del nombre exacto (evita fallos por espacios ocultos, mayúsculas, etc.)
+            # Fecha del gasto: buscamos automáticamente la propiedad de fecha,
+            # cubriendo distintos tipos posibles en Notion (date, formula con fecha,
+            # created_time, last_edited_time), sin depender del nombre exacto.
             fecha_str = None
+
+            # 1ra pasada: propiedad tipo 'date' explícita
             for prop_value in props.values():
                 if isinstance(prop_value, dict) and prop_value.get("type") == "date":
                     date_obj = prop_value.get("date")
-                    if date_obj:
+                    if date_obj and date_obj.get("start"):
                         fecha_str = date_obj.get("start")
-                    break
+                        break
+
+            # 2da pasada: fórmula que devuelve una fecha
+            if not fecha_str:
+                for prop_value in props.values():
+                    if isinstance(prop_value, dict) and prop_value.get("type") == "formula":
+                        formula_obj = prop_value.get("formula", {})
+                        if formula_obj.get("type") == "date" and formula_obj.get("date"):
+                            fecha_str = formula_obj["date"].get("start")
+                            break
+
+            # 3ra pasada: propiedades automáticas de Notion (creación / última edición)
+            if not fecha_str:
+                for prop_value in props.values():
+                    if isinstance(prop_value, dict) and prop_value.get("type") in ("created_time", "last_edited_time"):
+                        fecha_str = prop_value.get(prop_value.get("type"))
+                        break
 
             metodo_pago = props.get("Método de pago", {}).get("select", {}).get("name", "Sin especificar")
             categoria = props.get("Categoría", {}).get("select", {}).get("name", "Otros")
@@ -274,20 +293,6 @@ else:
                 st.plotly_chart(fig_stock, use_container_width=True)
             else:
                 st.info("No hay registros para mostrar.")
-
-        st.markdown("<hr>", unsafe_allow_html=True)
-        st.markdown('<p class="section-title">🔝 Top 10 Gastos por Nombre</p>', unsafe_allow_html=True)
-        if not df_filtrado.empty:
-            df_top = df_filtrado.groupby('Nombre')['Importe'].sum().reset_index().sort_values('Importe', ascending=False).head(10)
-            fig_top = px.bar(
-                df_top.sort_values('Importe'), x="Importe", y="Nombre", orientation="h",
-                text_auto='.2f', color_discrete_sequence=['#2b5c8f']
-            )
-            fig_top.update_traces(hovertemplate="<b>%{y}</b><br>Importe: S/. %{x:,.2f}<extra></extra>")
-            fig_top.update_layout(xaxis_title="Importe (S/.)", yaxis_title="", margin=dict(t=10, b=10))
-            st.plotly_chart(fig_top, use_container_width=True)
-        else:
-            st.info("No hay registros para mostrar.")
 
         st.markdown("<hr>", unsafe_allow_html=True)
         st.markdown('<p class="section-title">🔍 Desglose Categoría → Nombre</p>', unsafe_allow_html=True)
