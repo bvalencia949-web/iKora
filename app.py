@@ -158,25 +158,6 @@ def cargar_datos():
 
 df_raw = cargar_datos()
 
-with st.expander("🔧 Diagnóstico temporal (borrar después)"):
-    st.write("Nombres de columnas detectadas en 'Fecha_Raw':", df_raw['Fecha_Raw'].head(3).tolist() if not df_raw.empty else "Sin datos")
-    st.write("Para ver el JSON crudo de Notion, revisa la función de abajo.")
-
-    import json
-    url_debug = f"https://api.notion.com/v1/databases/{DATABASE_ID}/query"
-    headers_debug = {
-        "Authorization": f"Bearer {NOTION_TOKEN}",
-        "Notion-Version": "2022-06-28",
-        "Content-Type": "application/json"
-    }
-    resp_debug = requests.post(url_debug, headers=headers_debug, json={"page_size": 1})
-    if resp_debug.status_code == 200:
-        primer_registro = resp_debug.json().get("results", [])
-        if primer_registro:
-            st.json(primer_registro[0].get("properties", {}))
-    else:
-        st.write(f"Error [{resp_debug.status_code}]: {resp_debug.text}")
-
 # ==========================================
 # 📋 FILTROS INTELIGENTES (SIDEBAR)
 # ==========================================
@@ -248,33 +229,18 @@ else:
     # TAB 1: ANÁLISIS GENERAL
     # ==========================================
     with tab_general:
-        col_mes, col_cat, col_stock = st.columns(3)
-
-        with col_mes:
-            st.markdown('<p class="section-title">Gasto por Mes</p>', unsafe_allow_html=True)
-            if not df_filtrado.empty:
-                df_mes = df_filtrado.groupby(['Mes', 'Categoria'])['Importe'].sum().reset_index()
-                fig_mes = px.bar(
-                    df_mes, x="Mes", y="Importe", color="Categoria",
-                    barmode="stack", text_auto='.2f',
-                    color_discrete_sequence=px.colors.qualitative.Safe
-                )
-                fig_mes.update_traces(hovertemplate="<b>Importe:</b> S/. %{y:,.2f}<extra></extra>")
-                fig_mes.update_layout(xaxis_title="Mes", yaxis_title="Importe (S/.)", legend_title="Categoría", margin=dict(t=10, b=10))
-                st.plotly_chart(fig_mes, use_container_width=True)
-            else:
-                st.info("No hay registros en este periodo.")
+        col_cat, col_stock = st.columns(2)
 
         with col_cat:
             st.markdown('<p class="section-title">Distribución por Categoría</p>', unsafe_allow_html=True)
             if not df_filtrado.empty:
-                df_cat = df_filtrado.groupby('Categoria')['Importe'].sum().reset_index()
-                fig_cat = px.pie(
-                    df_cat, names="Categoria", values="Importe", hole=0.45,
-                    color_discrete_sequence=px.colors.qualitative.Pastel
+                df_cat = df_filtrado.groupby('Categoria')['Importe'].sum().reset_index().sort_values('Importe', ascending=False)
+                fig_cat = px.bar(
+                    df_cat, x="Categoria", y="Importe", text_auto='.2f',
+                    color="Categoria", color_discrete_sequence=px.colors.qualitative.Pastel
                 )
-                fig_cat.update_traces(hovertemplate="<b>%{label}</b><br>Importe: S/. %{value:,.2f}<extra></extra>")
-                fig_cat.update_layout(margin=dict(t=10, b=10))
+                fig_cat.update_traces(hovertemplate="<b>%{x}</b><br>Importe: S/. %{y:,.2f}<extra></extra>")
+                fig_cat.update_layout(xaxis_title="Categoría", yaxis_title="Importe (S/.)", showlegend=False, margin=dict(t=10, b=10))
                 st.plotly_chart(fig_cat, use_container_width=True)
             else:
                 st.info("No hay registros para mostrar.")
@@ -283,42 +249,22 @@ else:
             st.markdown('<p class="section-title">Stock por Categoría</p>', unsafe_allow_html=True)
             df_sin_capital = df_filtrado[df_filtrado['Cuenta'] != 'Capital']
             if not df_sin_capital.empty:
-                df_stock_cat = df_sin_capital.groupby('Categoria')['Cantidad'].sum().reset_index()
-                fig_stock = px.pie(
-                    df_stock_cat, names="Categoria", values="Cantidad", hole=0.45,
-                    color_discrete_sequence=px.colors.qualitative.Set3
+                df_stock_cat = df_sin_capital.groupby('Categoria')['Cantidad'].sum().reset_index().sort_values('Cantidad', ascending=False)
+                fig_stock = px.bar(
+                    df_stock_cat, x="Categoria", y="Cantidad", text_auto='.0f',
+                    color="Categoria", color_discrete_sequence=px.colors.qualitative.Set3
                 )
-                fig_stock.update_traces(hovertemplate="<b>%{label}</b><br>Cantidad: %{value:,.0f}<extra></extra>")
-                fig_stock.update_layout(margin=dict(t=10, b=10))
+                fig_stock.update_traces(hovertemplate="<b>%{x}</b><br>Cantidad: %{y:,.0f}<extra></extra>")
+                fig_stock.update_layout(xaxis_title="Categoría", yaxis_title="Cantidad", showlegend=False, margin=dict(t=10, b=10))
                 st.plotly_chart(fig_stock, use_container_width=True)
             else:
                 st.info("No hay registros para mostrar.")
-
-        st.markdown("<hr>", unsafe_allow_html=True)
-        st.markdown('<p class="section-title">🔍 Desglose Categoría → Nombre</p>', unsafe_allow_html=True)
-        if not df_filtrado.empty:
-            df_drill = df_filtrado.groupby(['Categoria', 'Nombre'])['Importe'].sum().reset_index()
-            fig_drill = px.treemap(
-                df_drill,
-                path=['Categoria', 'Nombre'],
-                values='Importe',
-                color='Categoria',
-                color_discrete_sequence=px.colors.qualitative.Dark24
-            )
-            fig_drill.update_traces(
-                textinfo="label+value+percent parent",
-                hovertemplate="<b>%{label}</b><br>Importe: S/. %{value:,.2f}<extra></extra>"
-            )
-            fig_drill.update_layout(margin=dict(t=10, b=10, l=10, r=10))
-            st.plotly_chart(fig_drill, use_container_width=True)
-        else:
-            st.info("No hay registros para mostrar el desglose.")
 
     # ==========================================
     # TAB 2: MÉTODOS DE PAGO Y CUENTAS
     # ==========================================
     with tab_metodos:
-        col_metodo, col_cuenta = st.columns(2)
+        col_metodo, col_mes = st.columns(2)
 
         with col_metodo:
             st.markdown('<p class="section-title">💳 Gasto por Método de Pago</p>', unsafe_allow_html=True)
@@ -334,35 +280,20 @@ else:
             else:
                 st.info("No hay registros para mostrar.")
 
-        with col_cuenta:
-            st.markdown('<p class="section-title">🏦 Gasto por Cuenta</p>', unsafe_allow_html=True)
-            if not df_filtrado.empty:
-                df_cuenta = df_filtrado.groupby('Cuenta')['Importe'].sum().reset_index()
-                fig_cuenta = px.bar(
-                    df_cuenta.sort_values('Importe', ascending=False),
-                    x="Cuenta", y="Importe", text_auto='.2f',
-                    color="Cuenta", color_discrete_sequence=px.colors.qualitative.Set2
+        with col_mes:
+            st.markdown('<p class="section-title">Gasto por Mes</p>', unsafe_allow_html=True)
+            df_solo_gasto = df_filtrado[df_filtrado['Cuenta'] == 'Gasto']
+            if not df_solo_gasto.empty:
+                df_mes_gasto = df_solo_gasto.groupby('Mes')['Importe'].sum().reset_index()
+                fig_mes = px.bar(
+                    df_mes_gasto, x="Mes", y="Importe", text_auto='.2f',
+                    color_discrete_sequence=['#2b5c8f']
                 )
-                fig_cuenta.update_traces(hovertemplate="<b>%{x}</b><br>Importe: S/. %{y:,.2f}<extra></extra>")
-                fig_cuenta.update_layout(xaxis_title="Cuenta", yaxis_title="Importe (S/.)", showlegend=False, margin=dict(t=10, b=10))
-                st.plotly_chart(fig_cuenta, use_container_width=True)
+                fig_mes.update_traces(hovertemplate="<b>Importe:</b> S/. %{y:,.2f}<extra></extra>")
+                fig_mes.update_layout(xaxis_title="Mes", yaxis_title="Importe (S/.)", margin=dict(t=10, b=10))
+                st.plotly_chart(fig_mes, use_container_width=True)
             else:
-                st.info("No hay registros para mostrar.")
-
-        st.markdown("<hr>", unsafe_allow_html=True)
-        st.markdown('<p class="section-title">📅 Evolución Mensual por Método de Pago</p>', unsafe_allow_html=True)
-        if not df_filtrado.empty:
-            df_mes_metodo = df_filtrado.groupby(['Mes', 'Metodo_Pago'])['Importe'].sum().reset_index()
-            fig_mes_metodo = px.bar(
-                df_mes_metodo, x="Mes", y="Importe", color="Metodo_Pago",
-                barmode="stack", text_auto='.2f',
-                color_discrete_sequence=px.colors.qualitative.Vivid
-            )
-            fig_mes_metodo.update_traces(hovertemplate="<b>Importe:</b> S/. %{y:,.2f}<extra></extra>")
-            fig_mes_metodo.update_layout(xaxis_title="Mes", yaxis_title="Importe (S/.)", legend_title="Método de Pago", margin=dict(t=10, b=10))
-            st.plotly_chart(fig_mes_metodo, use_container_width=True)
-        else:
-            st.info("No hay registros para mostrar.")
+                st.info("No hay registros de tipo 'Gasto' en este periodo.")
 
     # ==========================================
     # TAB 3: HISTORIAL
